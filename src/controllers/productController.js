@@ -1,18 +1,12 @@
 import Product from '../models/Product.js';
 
-
 export const getProducts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
     const sort = req.query.sort || '-createdAt';
     const category = req.query.category;
     const minPrice = req.query.minPrice;
     const maxPrice = req.query.maxPrice;
     const search = req.query.search;
-
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
 
     let query = {};
 
@@ -33,32 +27,19 @@ export const getProducts = async (req, res) => {
       ];
     }
 
-    const total = await Product.countDocuments(query);
-    const products = await Product.find(query)
-      .sort(sort)
-      .limit(limit)
-      .skip(startIndex);
+    // جلب كل المنتجات المطابقة للبحث بدون skip أو limit
+    const products = await Product.find(query).sort(sort).lean();
 
-    const pagination = {};
-    if (endIndex < total) {
-      pagination.next = {
-        page: page + 1,
-        limit,
-      };
-    }
-    if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit,
-      };
-    }
+    // 💡 تجهيز حقل image مباشر ورئيسي لكل منتج
+    const formattedProducts = products.map((product) => ({
+      ...product,
+      image: product.images?.[0]?.url || 'https://via.placeholder.com/300'
+    }));
 
     res.status(200).json({
       success: true,
-      count: products.length,
-      total,
-      pagination,
-      data: products,
+      count: formattedProducts.length,
+      data: formattedProducts,
     });
   } catch (error) {
     res.status(500).json({
